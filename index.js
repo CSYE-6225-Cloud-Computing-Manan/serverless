@@ -1,0 +1,57 @@
+const sgMail = require('@sendgrid/mail');
+const User = require('./model/userSchema.js');
+
+exports.handler = async (event) => {
+  console.log("hello from the lambda serverless function");
+
+  // Configure SendGrid API Key from Lambda environment variables
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('SendGrid API Key:', process.env.SENDGRID_API_KEY);
+  
+  // Extract SNS message details
+  const snsMessage = event.Records[0].Sns.Message;
+  const { email, verificationToken } = JSON.parse(snsMessage);
+  console.log('Email:', email);
+  console.log('Verification Token:', verificationToken);
+
+  try {
+    // Generate the verification link using the provided token and email
+    const verificationLink = `${process.env.VERIFICATION_URL}?token=${verificationToken}`;
+    console.log('Verification Link:', verificationLink);
+
+    // Prepare the email content
+    const msg = {
+      to: email,
+      from: 'noreply@webappmv.me', // Replace with your verified email
+      subject: 'Verify Your Email Address',
+      text: `Please verify your email by clicking the link below. This link will expire in 2 minutes.`,
+      html: `<p>Please verify your email by clicking the link below. This link will expire in 2 minutes.</p>
+             <p><a href="${verificationLink}">Verify Email</a></p>`
+    };
+
+    console.log('Email body:', msg);
+
+    // Send the email using SendGrid
+    await sgMail.send(msg);
+    const expTimer = new Date(Date.now() + (2 * 60 * 1000));
+
+     // Update the user's expTime in the database
+     await User.update(
+      { expTime: expTimer },
+      { where: { email: email } }
+    );
+
+    console.log('Verification email sent successfully.');
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Verification email sent.' })
+    };
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: 'Internal server error.' })
+    };
+  }
+};
