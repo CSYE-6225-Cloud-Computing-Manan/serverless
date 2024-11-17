@@ -1,5 +1,4 @@
 const sgMail = require('@sendgrid/mail');
-const User = require('./model/userSchema.js');
 
 exports.handler = async (event) => {
   console.log("hello from the lambda serverless function");
@@ -16,7 +15,7 @@ exports.handler = async (event) => {
 
   try {
     // Generate the verification link using the provided token and email
-    const verificationLink = `${process.env.VERIFICATION_URL}?token=${verificationToken}`;
+    const verificationLink = `${process.env.VERIFICATION_URL}?token=${verificationToken}&email=${encodeURIComponent(email)}`;
     console.log('Verification Link:', verificationLink);
 
     // Prepare the email content
@@ -26,20 +25,17 @@ exports.handler = async (event) => {
       subject: 'Verify Your Email Address',
       text: `Please verify your email by clicking the link below. This link will expire in 2 minutes.`,
       html: `<p>Please verify your email by clicking the link below. This link will expire in 2 minutes.</p>
-             <p><a href="${verificationLink}">Verify Email</a></p>`
+             <p><a href="${verificationLink}">Verify Email</a></p>
+             <br><br>
+             <p>If you didn't request this, please ignore this email.</p>
+             <p>Thanks,</p>
+             <p>WebAppMV Team</p>`,
     };
 
     console.log('Email body:', msg);
 
     // Send the email using SendGrid
     await sgMail.send(msg);
-    const expTimer = new Date(Date.now() + (2 * 60 * 1000));
-
-     // Update the user's expTime in the database
-     await User.update(
-      { expTime: expTimer },
-      { where: { email: email } }
-    );
 
     console.log('Verification email sent successfully.');
 
