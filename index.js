@@ -1,11 +1,23 @@
 const sgMail = require('@sendgrid/mail');
+const { SecretsManagerClient, GetSecretValueCommand } = require("@aws-sdk/client-secrets-manager");
 
 exports.handler = async (event) => {
   console.log("hello from the lambda serverless function");
+  const client = new SecretsManagerClient();
+
+  // Get API key from Secrets Manager
+  const response = await client.send(
+    new GetSecretValueCommand({
+      SecretId: process.env.API_SECRET_NAME
+    })
+  );
+  
+  const secretData = JSON.parse(response.SecretString);
+
+  console.log('API Key:', secretData.SENDGRID_API_KEY);
 
   // Configure SendGrid API Key from Lambda environment variables
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  console.log('SendGrid API Key:', process.env.SENDGRID_API_KEY);
+  sgMail.setApiKey(secretData.SENDGRID_API_KEY);
   
   // Extract SNS message details
   const snsMessage = event.Records[0].Sns.Message;
